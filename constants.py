@@ -1,6 +1,34 @@
 from types import Action
 from enum import Enum
 
+REQUIRED_PROGRESS = 7480
+REQUIRED_QUALITY = 13620
+STARTING_DURABILITY = 60
+
+RECIPE_LEVEL_PROG_DIV = 180
+RECIPE_LEVEL_PROG_MOD = 100
+RECIPE_LEVEL_QUAL_DIV = 180
+RECIPE_LEVEL_QUAL_MOD = 100
+
+CRAFTSMANSHIP = 3803
+CONTROL = 3592
+INITIAL_CP = 691
+
+CAREFUL_OBSERVATION_USES = 3
+HEART_AND_SOUL_USES = 1
+
+FINAL_APPRAISAL_LENGTH = 5
+WASTE_NOT_1_LENGTH = 4
+WASTE_NOT_2_LENGTH = 8
+MANIPULATION_LENGTH = 8
+GREAT_STRIDES_LENGTH = 3
+VENERATION_LENGTH = 4
+INNOVATION_LENGTH = 4
+MUSCLE_MEMORY_LENGTH = 5
+
+GOOD_MULTIPLIER = 1.5
+MALLEABLE_MULTIPLIER = 1.5
+
 POTENCIES = [0 for action in Action]
 POTENCIES[Action.basic_synthesis] = 120
 POTENCIES[Action.basic_touch] = 100
@@ -71,3 +99,5 @@ class ACTION_TYPE(set, Enum):
     CHANCE_OF_FAIL = {Action.focused_synthesis, Action.focused_touch, Action.rapid_synthesis, Action. hasty_touch}
     OBSERVE_ACTIONS = {Action.focused_synthesis, Action.focused_touch}
     GOOD_ACTIONS = {Action.tricks_of_the_trade, Action.intensive_synthesis, Action.precise_touch}
+    INITIAL_ACTIONS = {Action.muscle_memory, Action.reflect}
+    EXTRA_INNER_QUIET = {Action.reflect, Action.prepatory_touch}
