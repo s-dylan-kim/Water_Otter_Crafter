@@ -99,7 +99,7 @@ CP_COST[Action.heart_and_soul.value] = 0
 class ACTION_TYPE(set, Enum):
     PROGRESS = {Action.basic_synthesis, Action.rapid_synthesis, Action.muscle_memory, Action.careful_synthesis, Action.focused_synthesis, Action.groundwork, Action.delicate_synthesis, Action.intensive_synthesis, Action.prudent_synthesis}
     QUALITY = {Action.basic_touch, Action.hasty_touch, Action.standard_touch, Action.byregots_blessing, Action.precise_touch, Action.prudent_touch, Action.focused_touch, Action.reflect, Action.prepatory_touch, Action.delicate_synthesis, Action.advanced_touch, Action.trained_finesse}
-    NO_TURN = {Action.heart_and_soul, Action.final_appraisal}
+    NO_TURN = {Action.heart_and_soul, Action.final_appraisal, Action.careful_observation}
     DOUBLE_DURABILITY = {Action.prepatory_touch, Action.groundwork}
     HALF_DURABILITY = {Action.prudent_synthesis, Action.prudent_touch}
     CHANCE_OF_FAIL = {Action.focused_synthesis, Action.focused_touch, Action.rapid_synthesis, Action. hasty_touch}

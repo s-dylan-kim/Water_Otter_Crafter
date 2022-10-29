@@ -11,7 +11,19 @@ class Condition(Enum):
 
     @classmethod
     def RANDOM(cls):
-        return random.choice(list(cls.__members__.values()))
+        random_val = random.random()
+        if (random_val < 0.12):
+            return cls.good
+        elif (random_val < 0.27):
+            return cls.centered
+        elif (random_val < 0.42):
+            return cls.sturdy
+        elif (random_val < 0.54):
+            return cls.malleable
+        elif (random_val < 0.66):
+            return cls.primed
+        else:
+            return cls.normal
 
 
 class Action(Enum):

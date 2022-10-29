@@ -6,36 +6,48 @@ from math import ceil
 import numpy as np
 
 class Crafting_State:
-    ############    States for actions (buffs/combos)       ############
+    def __init__(self):
+        ############    States for actions (buffs/combos)       ############
 
-    # combo states
-    touch_combo = 0 # 0: no combo, 1: after basic touch, 2: after standard touch
-    observe = 0 # combo for focused synth/touch
-    inner_quiet = 0
-    
-    # steps left on each buff
-    waste_not_1 = 0
-    waste_not_2 = 0
-    manipulation = 0
-    great_strides = 0
-    veneration = 0
-    innovation = 0
-    final_appraisal = 0
-    muscle_memory = 0
+        # combo states
+        self.touch_combo = 0 # 0: no combo, 1: after basic touch, 2: after standard touch
+        self.observe = 0 # combo for focused synth/touch
+        self.inner_quiet = 0
+        
+        # steps left on each buff
+        self.waste_not_1 = 0
+        self.waste_not_2 = 0
+        self.manipulation = 0
+        self.great_strides = 0
+        self.veneration = 0
+        self.innovation = 0
+        self.final_appraisal = 0
+        self.muscle_memory = 0
 
-    # uses left on specialist actions
-    careful_observation = constants.CAREFUL_OBSERVATION_USES
-    heart_and_soul = constants.HEART_AND_SOUL_USES
+        # uses left on specialist actions
+        self.careful_observation = constants.CAREFUL_OBSERVATION_USES
+        self.heart_and_soul = constants.HEART_AND_SOUL_USES
 
-    # state for starting actions (reflect/muscle memory)
-    initial = True
+        # state for starting actions (reflect/muscle memory)
+        self.initial = True
+        self.heart_and_soul_on = False
 
-    ############     States for Craft (progress/condition)     ############
-    progress = 0
-    quality = 0
-    cp = constants.INITIAL_CP
-    condition = Condition.normal
-    durability = constants.STARTING_DURABILITY
+        ############     States for Craft (progress/condition)     ############
+        self.progress = 0
+        self.quality = 0
+        self.cp = constants.INITIAL_CP
+        self.condition = Condition.normal
+        self.durability = constants.STARTING_DURABILITY
+
+    def __str__(self):
+        str_list = []
+        str_list.append("progress: {}\n".format(self.progress))
+        str_list.append("quality: {}\n".format(self.quality))
+        str_list.append("CP: {}\n".format(self.cp))
+        str_list.append("Condition: {}\n".format(self.condition))
+        str_list.append("Durability: {}\n".format(self.durability))
+
+        return ''.join(str_list)
 
     def crafting_sim(self, action: Action) -> tuple[int, bool]:  # returns (reward, done?)
         # check action validity
@@ -43,8 +55,12 @@ class Crafting_State:
         if (action in constants.ACTION_TYPE.INITIAL_ACTIONS and not self.initial):
             return (-100, False)
 
+        #check limited use actions
+        if (action == Action.careful_observation and self.careful_observation <= 0 or action == Action.heart_and_soul and self.heart_and_soul <= 0):
+            return (-100, False)
+
         # check good actions
-        if (self.condition != Condition.good and action in constants.ACTION_TYPE.GOOD_ACTIONS):
+        if ((self.condition != Condition.good or self.heart_and_soul_on) and action in constants.ACTION_TYPE.GOOD_ACTIONS):
             return (-100, False)
         
         # check half durability actions
@@ -52,7 +68,7 @@ class Crafting_State:
             return (-100, False)
 
         # check CP cost
-        cp_cost = constants.CP_COST[action]
+        cp_cost = constants.CP_COST[action.value]
         if (action == Action.standard_touch and self.touch_combo == 1 or action == Action.advanced_touch and self.touch_combo == 2):
             cp_cost = constants.TOUCH_COMBO_CP
 
@@ -66,8 +82,16 @@ class Crafting_State:
         if (action in constants.ACTION_TYPE.NO_TURN):
             if (action == Action.final_appraisal):
                 self.final_appraisal = constants.FINAL_APPRAISAL_LENGTH
+            if (action == Action.heart_and_soul):
+                self.heart_and_soul -= 1
+                self.heart_and_soul_on = True
+            if (action == Action.careful_observation):
+                self.careful_observation -= 1
+                self.condition = Condition.RANDOM()
             return (0, False)
 
+        self.initial = False
+        self.heart_and_soul_on = False
 
         # check if actions succeeds
         if (action in constants.ACTION_TYPE.CHANCE_OF_FAIL):
@@ -107,25 +131,25 @@ class Crafting_State:
         reward = 0
 
         qual = calc_base_quality()
-        
+
         # apply malleable
         if (self.condition == Condition.good):
-            prog *= constants.MALLEABLE_MULTIPLIER
-        
-        efficiency = np.float32(constants.POTENCIES[action])
+            qual *= constants.GOOD_MULTIPLIER
+
+        efficiency = np.float32(constants.POTENCIES[action.value])/100
 
         if (action == Action.byregots_blessing):
-            efficiency += (20 * self.inner_quiet)
+            efficiency += (0.2 * self.inner_quiet)
         
         #check IQ stacks
-        efficiency *= (1 + self.inner_quiet) / 10
+        efficiency *= 1 + self.inner_quiet / 10
 
         #check all buffs
         efficiency *= self.__get_qual_buffs()
         efficiency /= 100
 
         qual *= efficiency
-        qual = np.floor(qual).item()
+        qual = int(np.floor(qual).item())
 
         if (self.quality + qual >= constants.REQUIRED_QUALITY):
             reward += constants.REQUIRED_QUALITY - self.quality
@@ -153,12 +177,12 @@ class Crafting_State:
         reward = 0
 
         prog = calc_base_progress()
-            
+        
         # apply malleable
         if (self.condition == Condition.malleable):
             prog *= constants.GOOD_MULTIPLIER
         
-        efficiency = np.float32(constants.POTENCIES[action])
+        efficiency = np.float32(constants.POTENCIES[action.value])/100
         
         #check all buffs
         efficiency *= self.__get_prog_buffs()
@@ -174,7 +198,7 @@ class Crafting_State:
             else:
                 reward = constants.REQUIRED_PROGRESS - self.progress
                 self.progress = constants.REQUIRED_PROGRESS
-                return (reward, True)
+                return reward
         else:    
             self.progress += prog
             reward += prog
