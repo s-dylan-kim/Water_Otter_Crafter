@@ -1,5 +1,5 @@
-from enum import auto, Enum
-import random
+from constants import POTENCIES, CP_COST, SUCCESS, ACTION_TYPE
+from types import Condition, Action
 
 REQUIRED_PROGRESS = 7480
 REQUIRED_QUALITY = 13620
@@ -9,52 +9,18 @@ CRAFTSMANSHIP = 3803
 CONTROL = 3592
 CP = 691
 
-class Condition(Enum):
-    normal = auto()
-    good = auto() # 1.5x quality gain (also allows using good actions)
-    malleable = auto() # 1.5x progress gain
-    centered = auto() # improves success rate by 25%
-    primed = auto() # next action lasts 2 more steps
-    sturdy = auto() # next action uses half durability
 
-    @classmethod
-    def RANDOM(cls):
-        return random.choice(list(cls.__members__.values()))
+CAREFUL_OBSERVATION_USES = 3
+HEART_AND_SOUL_USES = 1
 
-
-class Action(Enum):
-    basic_synthesis = auto()
-    basic_touch = auto()
-    masters_mend = auto()
-    hasty_touch = auto()
-    rapid_synthesis = auto()
-    observe = auto()
-    tricks_of_the_trade = auto()
-    waste_not = auto()
-    veneration = auto()
-    standard_touch = auto()
-    great_strides = auto()
-    innovation = auto()
-    final_appraisal = auto()
-    waste_not_2 = auto()
-    byregots_blessing = auto()
-    precise_touch = auto()
-    muscle_memory = auto()
-    careful_synthesis = auto()
-    manipulation = auto()
-    prudent_touch = auto()
-    focuesd_synthesis = auto()
-    focused_touch = auto()
-    reflect = auto()
-    prepatory_touch = auto()
-    groundwork = auto()
-    delicate_synthesis = auto()
-    intensive_synthesis = auto()
-    advanced_touch = auto()
-    prudent_synthesis = auto()
-    trained_finesse = auto()
-    careful_observation = auto()
-    heart_and_soul = auto()
+FINAL_APPRAISAL_LENGTH = 5
+WASTE_NOT_1_LENGTH = 4
+WASTE_NOT_2_LENGTH = 8
+MANIPULATION_LENGTH = 8
+GREAT_STRIDES_LENGTH = 3
+VENERATION_LENGTH = 4
+INNOVATION_LENGTH = 4
+MUSCLE_MEMORY_LENGTH = 5
 
 class Crafting_State:
     ############    States for actions (buffs/combos)       ############
@@ -73,8 +39,8 @@ class Crafting_State:
     final_appraisal = 0
 
     # uses left on specialist actions
-    careful_observation = 3
-    heart_and_soul = 1
+    careful_observation = CAREFUL_OBSERVATION_USES
+    heart_and_soul = HEART_AND_SOUL_USES
 
     # state for starting actions (reflect/muscle memory)
     initial = True
@@ -85,13 +51,21 @@ class Crafting_State:
     condition = Condition.normal
     durability = STARTING_DURABILITY
 
-    def crafting_sim(self, action: Action) -> int:  # returns reward
-        if (action == Action.careful_observation):
-            self.condition = Condition.RANDOM()
-            return 0
+    def crafting_sim(self, action: Action) -> tuple[int, bool]:  # returns (reward, done?)
 
-        
+        # check either of actions that dont progress turns
+        if (action in ACTION_TYPE.NO_TURN):
+            if (action == Action.final_appraisal):
+                self.final_appraisal = FINAL_APPRAISAL_LENGTH
+            return (0, False)
 
+        if (action in ACTION_TYPE.PROGRESS):
+            pass
+        if (action in ACTION_TYPE.QUALITY):
+            pass
+
+        # change condition and decrement buffs
+        self.condition = Condition.RANDOM()
         self.__decrement_buffs()
 
 
