@@ -1,8 +1,8 @@
-from random import Random
+from random import random
 import constants
 from crafting_types import Condition, Action
 from utils import calc_base_progress, calc_base_quality
-from math import ceil
+from math import floor
 import numpy as np
 
 class Crafting_State:
@@ -11,7 +11,7 @@ class Crafting_State:
 
         # combo states
         self.touch_combo = 0 # 0: no combo, 1: after basic touch, 2: after standard touch
-        self.observe = 0 # combo for focused synth/touch
+        self.observe = False # combo for focused synth/touch
         self.inner_quiet = 0
         
         # steps left on each buff
@@ -45,7 +45,21 @@ class Crafting_State:
         str_list.append("quality: {}\n".format(self.quality))
         str_list.append("CP: {}\n".format(self.cp))
         str_list.append("Condition: {}\n".format(self.condition))
-        str_list.append("Durability: {}\n".format(self.durability))
+        str_list.append("Durability: {}\n\n".format(self.durability))
+
+        str_list.append("Buffs\nWaste Not 1: {}\n".format(self.waste_not_1))
+        str_list.append("Waste Not 2: {}\n".format(self.waste_not_2))
+        str_list.append("Manipulation: {}\n".format(self.manipulation))
+        str_list.append("Great Strides: {}\n".format(self.great_strides))
+        str_list.append("Veneration: {}\n".format(self.veneration))
+        str_list.append("Innovation: {}\n".format(self.innovation))
+        str_list.append("Final Appraisal: {}\n".format(self.final_appraisal))
+        str_list.append("Muscle Memory: {}\n\n".format(self.muscle_memory))
+
+        str_list.append("Other\nInner Quiet: {}\n".format(self.inner_quiet))
+        str_list.append("Touch Combo: {}\n".format(self.touch_combo))
+        str_list.append("Observe: {}\n".format(self.observe))
+        str_list.append("Heart and Soul: {}\n".format(self.heart_and_soul_on))
 
         return ''.join(str_list)
 
@@ -65,6 +79,10 @@ class Crafting_State:
         
         # check half durability actions
         if ((self.waste_not_1 > 0 or self.waste_not_2 > 0) and action in constants.ACTION_TYPE.HALF_DURABILITY):
+            return (-100, False)
+
+        # check traained inesse
+        if (action == Action.trained_finesse and self.inner_quiet < 10):
             return (-100, False)
 
         # check CP cost
@@ -90,40 +108,67 @@ class Crafting_State:
                 self.condition = Condition.RANDOM()
             return (0, False)
 
-        self.initial = False
-        self.heart_and_soul_on = False
-
-        # check if actions succeeds
-        if (action in constants.ACTION_TYPE.CHANCE_OF_FAIL):
-            if (self.observe and action in constants.ACTION_TYPE.OBSERVE_ACTIONS):
-                random = Random.random()
-                if (constants.SUCCESS[action] < random or self.condition == Condition.centered and constants.SUCCESS[action] * 1.25 < random):
-                    return (0, False)
-        
         # track reward
         reward = 0
+        done = False
 
-        # calc quality and progress changes
-        if (action in constants.ACTION_TYPE.QUALITY):
-            reward += self.__change_qual(action)
+        action_fail = False
 
-        if (action in constants.ACTION_TYPE.PROGRESS):
-            reward += self.__change_prog(action)
-            
-            ## add extra incentive for completing craft
-            if (self.progress >= constants.REQUIRED_PROGRESS):
-                return (reward, True)
 
-        # check buff actions
-        reward += self.__apply_buffs(action)
+        # check if actions succeeds
+        if (action in constants.ACTION_TYPE.CHANCE_OF_FAIL and
+                not (self.observe and action in constants.ACTION_TYPE.OBSERVE_ACTIONS)):
+            random_roll = random()
+            if (constants.SUCCESS[action.value] < random_roll or self.condition == Condition.centered and constants.SUCCESS[action.value] * 1.25 < random_roll):
+                action_fail = True
+        
+        self.initial = False
+        self.heart_and_soul_on = False
+        self.observe = False
 
-        # durability changes
-        done = self.__change_durability(action)
+        if (not action_fail):
+            # calc quality and progress changes
+            if (action in constants.ACTION_TYPE.QUALITY):
+                reward += self.__change_qual(action)
+
+            if (action in constants.ACTION_TYPE.PROGRESS):
+                reward += self.__change_prog(action)
+                
+                ## add extra incentive for completing craft
+                if (self.progress >= constants.REQUIRED_PROGRESS):
+                    if (self.quality >= constants.REQUIRED_QUALITY):
+                        reward += 1000
+                    return (reward, True)
+
+        # hand combo actions
+        if (action == Action.observe):
+            self.observe = True
+        if (action == Action.basic_touch):
+            self.touch_combo = 1
+        elif (action == Action.standard_touch and self.touch_combo == 1):
+            self.touch_combo = 2
+        else:
+            self.touch_combo = 0
+
+        # check manipulation
+        if (self.manipulation > 0):
+            self.durability += constants.MANIPULATION_DURABILITY
+
+        self.__decrement_buffs()
+
+        if (action in constants.ACTION_TYPE.BUFF_ACTIONS):
+            # check buff actions
+            reward += self.__apply_buffs(action)
+        else:
+            # durability changes
+            done = self.__change_durability(action)
+
+        # check for overcap
+        if (self.durability > constants.STARTING_DURABILITY):
+            self.durability = constants.STARTING_DURABILITY
 
         # change condition and decrement buffs
         self.condition = Condition.RANDOM()
-        self.__decrement_buffs()
-
         return (reward, done)
 
 
@@ -281,25 +326,16 @@ class Crafting_State:
             durability_change *= 2
         if (self.condition == Condition.sturdy):
             durability_change /= 2
+        if (self.waste_not_1 or self.waste_not_2):
+            durability_change /= 2
         if (action == Action.masters_mend):
             durability_change = -30
         
-        durability_change = ceil(durability_change)
+        durability_change = floor(durability_change)
 
         self.durability += durability_change
 
-        if (self.durability < 0):
-            return True
-
-        # check manipulation
-        if (self.manipulation > 0):
-            self.durability += constants.MANIPULATION_DURABILITY
-
-        # check for overcap
-        if (self.durability > constants.STARTING_DURABILITY):
-            self.durability = constants.STARTING_DURABILITY
-        
-        return False
+        return self.durability <= 0
 
     def __decrement_buffs(self):
         if (self.waste_not_1 > 0):
@@ -318,3 +354,6 @@ class Crafting_State:
             self.final_appraisal -= 1
 
     
+    # for debug
+    def set_condition(self, condition: Condition):
+        self.condition = condition

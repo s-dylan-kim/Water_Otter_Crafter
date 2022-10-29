@@ -107,3 +107,4 @@ class ACTION_TYPE(set, Enum):
     GOOD_ACTIONS = {Action.tricks_of_the_trade, Action.intensive_synthesis, Action.precise_touch}
     INITIAL_ACTIONS = {Action.muscle_memory, Action.reflect}
     EXTRA_INNER_QUIET = {Action.reflect, Action.prepatory_touch, Action.precise_touch}
+    BUFF_ACTIONS = {Action.observe, Action.tricks_of_the_trade, Action.waste_not_1, Action.veneration, Action.great_strides, Action.innovation, Action.waste_not_2, Action.manipulation, Action.trained_finesse}
