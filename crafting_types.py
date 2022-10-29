@@ -22,7 +22,7 @@ class Action(Enum):
     rapid_synthesis = auto()
     observe = auto()
     tricks_of_the_trade = auto()
-    waste_not = auto()
+    waste_not_1 = auto()
     veneration = auto()
     standard_touch = auto()
     great_strides = auto()
