@@ -12,16 +12,18 @@ class PPO2(nn.Module):
 
         self.network = nn.Sequential(
             nn.Linear(self.input_dim, self.hidden_dim),
-            nn.LeakyReLU(),
+            nn.Tanh(),
             nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.LeakyReLU()
+            nn.Tanh()
         )
 
         self.policy_head = nn.Linear(self.hidden_dim, self.output_dim)
         self.value_head = nn.Linear(self.hidden_dim, 1)
 
     def forward (self, x, action=None):
+
         shared_nn = self.network(x)
+
         actor_logit = self.policy_head(shared_nn)
         value = self.value_head(shared_nn)
 
@@ -66,3 +68,7 @@ class PPO2(nn.Module):
         loss = policy_loss - entropy_mean * entropy_coef + value_loss * value_coef
 
         return loss, policy_loss, value_loss, entropy_mean, approxkl
+
+    def init_parameters(self):
+        for param in self.parameters():
+            nn.init.uniform_(param, -1 , 1)

@@ -4,13 +4,14 @@ from ppo import PPO2
 from crafting_sim.crafting_sim import Crafting_State
 from crafting_sim.crafting_types import Action
 import torch
-# from visdom import Visdom
-# import os
+from visdom import Visdom
+import os
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-N_STEP = 2048
+# N_STEP = 2048
+N_STEP = 100
 GAMMA = 0.99
 LAMBDA = 0.95
 
@@ -20,12 +21,14 @@ N_BATCH_TRAIN = (N_STEP // MINI_BATCHES)
 
 CLIP_RANGE = 0.1
 VALUE_COEF = 0.5
-ENTROPY_COEF = 0.01
+ENTROPY_COEF = 0.05
 MAX_GRAD_NORM = 0.5
 
 LOGS_EVERY = 10
+SAVE_EVERY = 1000
+VERSION = '1'
 
-# VIS = Visdom()
+VIS = Visdom()
 
 def generate_minibatches(model):
     crafting_instance = Crafting_State()
@@ -54,6 +57,9 @@ def generate_minibatches(model):
         reward, done = crafting_instance.crafting_sim(Action(action+1)) # +1 due to 1 indexing of enum
         
         mb_rewards.append(reward)
+
+        if (done):
+            crafting_instance.__init__()
     
     mb_obs = np.squeeze(np.asarray(mb_obs, dtype=np.float32), axis=1)
     mb_rewards = np.asarray(mb_rewards, dtype=np.float32)
@@ -84,6 +90,9 @@ def generate_minibatches(model):
 
         gaelambda = delta + GAMMA * LAMBDA * (1 - done_state) * gaelambda
         mb_advs[i] = gaelambda
+
+        if done_state:
+            gaelambda = 0
     
     mb_returns = mb_advs + mb_values
 
@@ -91,7 +100,6 @@ def generate_minibatches(model):
             
             
 def train_step_fn(obs, returns, dones, old_actions, old_values, old_neg_log_prbs, model):
-
     assert old_neg_log_prbs.min() > 0
 
     obs = torch.tensor(obs).float().to(device)
@@ -124,19 +132,19 @@ def train_step_fn(obs, returns, dones, old_actions, old_values, old_neg_log_prbs
     return list(map(lambda x: x.detach().item(), [loss, pg_loss, value_loss, entropy_mean, approx_kl]))
 
 
-# def plot_lines(vals, legend, idx, name):
-#     if idx == 1:
-#         update=None
-#     else:
-#         update='append'
+def plot_lines(vals, legend, idx, name):
+    if idx == 1:
+        update=None
+    else:
+        update='append'
 
-#     VIS.line(X=[idx-1],
-#              Y=[vals],
-#              win=EXP_NAME + "_" + name,
-#              opts=dict(
-#                  legend=legend,
-#                  showlegend=True),
-#              update=update)
+    VIS.line(X=[idx-1],
+             Y=[vals],
+             win= "Craft_" + name,
+             opts=dict(
+                 legend=legend,
+                 showlegend=True),
+             update=update)
 
 if __name__ == '__main__':
 
@@ -144,13 +152,15 @@ if __name__ == '__main__':
     # output space 32
 
     model = PPO2(20, 32, 32)
+    model.init_parameters()
 
     model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters()) # TODO: ADD LR
 
+    obs, returns, done, actions, value, neg_log_prob = generate_minibatches(model)
 
-    for update in range(1, 100): # number of updates
+    for update in range(1, 10000): # number of updates
         obs, returns, done, actions, value, neg_log_prob = generate_minibatches(model)
 
         mb_loss_vals = []
@@ -169,32 +179,37 @@ if __name__ == '__main__':
         loss_vals = np.mean(mb_loss_vals, axis=0)
         loss_names = ['loss', 'policy_loss', 'value_loss', 'policy_entropy', 'approxkl']
 
-        # if update % LOGS_EVERY == 0 or update == 1:
-        #     # Calculates if value function is a good predicator of the returns (ev > 1)
-        #     # or if it's just worse than predicting nothing (ev =< 0)
-        #     print("misc/n_updates", update)
-        #     print("misc/total_timesteps", update * N_STEP)
+        if update % LOGS_EVERY == 0 or update == 1:
+            # Calculates if value function is a good predicator of the returns (ev > 1)
+            # or if it's just worse than predicting nothing (ev =< 0)
+            print("misc/n_updates", update)
+            print("misc/total_timesteps", update * N_STEP)
 
-        #     # ep_rew_mean = helper.safemean([ep_info['r'] for ep_info in ep_info_buf])
-        #     # ep_len_mean = helper.safemean([ep_info['l'] for ep_info in ep_info_buf])
+            # ep_rew_mean = helper.safemean([ep_info['r'] for ep_info in ep_info_buf])
+            # ep_len_mean = helper.safemean([ep_info['l'] for ep_info in ep_info_buf])
 
-        #     # print('ep_rew_mean', ep_rew_mean)
-        #     # print('ep_len_mean', ep_len_mean)
+            # print('ep_rew_mean', ep_rew_mean)
+            # print('ep_len_mean', ep_len_mean)
 
-        #     for (loss_val, loss_name) in zip(loss_vals, loss_names):
-        #         print('loss/' + loss_name, loss_val)
+            for (loss_val, loss_name) in zip(loss_vals, loss_names):
+                print('loss/' + loss_name, loss_val)
 
-        #     plot_lines(loss_vals,  loss_names, update, 'losses')
-        #     # plot_lines([ep_rew_mean, ep_len_mean], ['reward', 'length'], update, 'rewards')
+            plot_lines(loss_vals,  loss_names, update, 'losses')
+            # plot_lines([ep_rew_mean, ep_len_mean], ['reward', 'length'], update, 'rewards')
 
 
-        # if update % args.save_every == 0 or update == 1:
-        #     # save model checkpoint
-        #     torch.save({
-        #         'update': update,
-        #         'state_dict': model.state_dict(),
-        #         'optimizer': optimizer.state_dict()
-        #     },
-        #         os.path.join("./saves", VERSION, "train_net.cpt")
-        #     )
+        if update % SAVE_EVERY == 0 or update == 1:
+            # save model checkpoint
+            path = os.path.join(".\saves", VERSION, "train_net.cpt")
+            directory = os.path.dirname(path)
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+
+            torch.save({
+                'update': update,
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict()
+            },
+                path
+            )
 
