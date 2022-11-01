@@ -1,9 +1,10 @@
 from random import random
-import constants
-from crafting_types import Condition, Action
-from utils import calc_base_progress, calc_base_quality
+import crafting_sim.constants as constants
+from crafting_sim.crafting_types import Condition, Action
+from crafting_sim.utils import calc_base_progress, calc_base_quality
 from math import floor
 import numpy as np
+import torch
 
 class Crafting_State:
     def __init__(self):
@@ -62,6 +63,34 @@ class Crafting_State:
         str_list.append("Heart and Soul: {}\n".format(self.heart_and_soul_on))
 
         return ''.join(str_list)
+
+    def to_vector(self):
+        out = np.empty(20, dtype=np.float32)
+        out[0] = self.progress / constants.REQUIRED_PROGRESS
+        out[1] = self.quality / constants.REQUIRED_QUALITY
+        out[2] = self.cp / constants.INITIAL_CP
+        out[3] = self.condition.value / len(Condition)
+        out[4] = self.durability / constants.STARTING_DURABILITY
+
+        out[5] = self.touch_combo / 2 # 3 steps
+        out[6] = self.observe
+        out[7] = self.inner_quiet / 10
+
+        out[8] = self.waste_not_1 / (constants.WASTE_NOT_1_LENGTH + 2) # +2 for primed
+        out[9] = self.waste_not_2 / (constants.WASTE_NOT_2_LENGTH + 2)
+        out[10] = self.manipulation / (constants.MANIPULATION_LENGTH + 2)
+        out[11] = self.great_strides / (constants.GREAT_STRIDES_LENGTH + 2)
+        out[12] = self.veneration / (constants.VENERATION_LENGTH + 2)
+        out[13] = self.innovation / (constants.INNOVATION_LENGTH + 2)
+        out[14] = self.final_appraisal / (constants.FINAL_APPRAISAL_LENGTH + 2)
+        out[15] = self.muscle_memory / (constants.MUSCLE_MEMORY_LENGTH + 2)
+        out[16] = self.careful_observation / constants.CAREFUL_OBSERVATION_USES
+        out[17] = self.heart_and_soul / constants.HEART_AND_SOUL_USES
+        out[18] = self.heart_and_soul_on
+        out[19] = self.initial
+
+        return out
+
 
     def crafting_sim(self, action: Action) -> tuple[int, bool]:  # returns (reward, done?)
         # check action validity
@@ -264,37 +293,36 @@ class Crafting_State:
         if (self.condition == Condition.primed):
             additional_turns = constants.PRIMED_ADDITIONAL_TURNS
 
-        match action:
-            case Action.waste_not_1:
-                if (self.waste_not_1 > constants.WASTE_NOT_1_LENGTH + additional_turns):
-                    return -100
-                else:
-                    self.waste_not_1 = constants.WASTE_NOT_1_LENGTH + additional_turns
-            case Action.waste_not_2:
-                if (self.waste_not_2 > constants.WASTE_NOT_2_LENGTH + additional_turns):
-                    return -100
-                else:
-                    self.waste_not_2 = constants.WASTE_NOT_2_LENGTH + additional_turns
-            case Action.manipulation:
-                if (self.manipulation > constants.MANIPULATION_LENGTH + additional_turns):
-                    return -100
-                else:
-                    self.manipulation = constants.MANIPULATION_LENGTH + additional_turns
-            case Action.great_strides:
-                if (self.great_strides > constants.GREAT_STRIDES_LENGTH + additional_turns):
-                    return -100
-                else:
-                    self.great_strides = constants.GREAT_STRIDES_LENGTH + additional_turns
-            case Action.veneration:
-                if (self.veneration > constants.VENERATION_LENGTH + additional_turns):
-                    return -100
-                else:
-                    self.veneration = constants.VENERATION_LENGTH + additional_turns
-            case Action.innovation:
-                if (self.innovation > constants.INNOVATION_LENGTH + additional_turns):
-                    return -100
-                else:
-                    self.innovation = constants.INNOVATION_LENGTH + additional_turns
+        if action == Action.waste_not_1:
+            if (self.waste_not_1 > constants.WASTE_NOT_1_LENGTH + additional_turns):
+                return -100
+            else:
+                self.waste_not_1 = constants.WASTE_NOT_1_LENGTH + additional_turns
+        elif action == Action.waste_not_2:
+            if (self.waste_not_2 > constants.WASTE_NOT_2_LENGTH + additional_turns):
+                return -100
+            else:
+                self.waste_not_2 = constants.WASTE_NOT_2_LENGTH + additional_turns
+        elif action == Action.manipulation:
+            if (self.manipulation > constants.MANIPULATION_LENGTH + additional_turns):
+                return -100
+            else:
+                self.manipulation = constants.MANIPULATION_LENGTH + additional_turns
+        elif action == Action.great_strides:
+            if (self.great_strides > constants.GREAT_STRIDES_LENGTH + additional_turns):
+                return -100
+            else:
+                self.great_strides = constants.GREAT_STRIDES_LENGTH + additional_turns
+        elif action == Action.veneration:
+            if (self.veneration > constants.VENERATION_LENGTH + additional_turns):
+                return -100
+            else:
+                self.veneration = constants.VENERATION_LENGTH + additional_turns
+        elif action == Action.innovation:
+            if (self.innovation > constants.INNOVATION_LENGTH + additional_turns):
+                return -100
+            else:
+                self.innovation = constants.INNOVATION_LENGTH + additional_turns
 
         return 0
 
@@ -333,14 +361,10 @@ class Crafting_State:
             durability_change /= 2
         if (action == Action.masters_mend):
             durability_change = 30
-        
-        print(durability_change)
 
         durability_change = floor(durability_change)
 
         self.durability += durability_change
-
-        print(self.durability)
 
         return self.durability <= 0
 

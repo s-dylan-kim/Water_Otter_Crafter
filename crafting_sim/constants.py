@@ -1,4 +1,4 @@
-from crafting_types import Action
+from crafting_sim.crafting_types import Action
 from enum import Enum
 
 REQUIRED_PROGRESS = 7480

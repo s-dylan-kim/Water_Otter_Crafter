@@ -1,4 +1,3 @@
-from importlib.metadata import distribution
 import torch
 import torch.nn as nn
 import torch.distributions as D
@@ -12,7 +11,7 @@ class PPO2(nn.Module):
         self.output_dim = output_dim
 
         self.network = nn.Sequential(
-            nn.Linear(self.inpur_dim, self.hidden_dim),
+            nn.Linear(self.input_dim, self.hidden_dim),
             nn.LeakyReLU(),
             nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.LeakyReLU()
@@ -21,18 +20,22 @@ class PPO2(nn.Module):
         self.policy_head = nn.Linear(self.hidden_dim, self.output_dim)
         self.value_head = nn.Linear(self.hidden_dim, 1)
 
-    def forward (self, x):
+    def forward (self, x, action=None):
         shared_nn = self.network(x)
         actor_logit = self.policy_head(shared_nn)
         value = self.value_head(shared_nn)
 
         distribution = D.categorical.Categorical(logits = actor_logit)
 
-        action_taken = distribution.sample()
-        neg_log_prob = distribution.log_prob(action_taken) * -1
-        entropy = distribution.entropy()
+        if action is None:
+            action = distribution.sample()
+            neg_log_prob = distribution.log_prob(action) * -1
+            entropy = distribution.entropy()
+        else:
+            neg_log_prob = distribution.log_prob(action) * -1
+            entropy = distribution.entropy()
 
-        return value, action_taken, neg_log_prob, entropy
+        return value, action, neg_log_prob, entropy
 
     def loss (self, reward, value, advantage, neg_log_prob, entropy, old_value, old_neg_log_prob, clip_range, entropy_coef, value_coef):
         entropy_mean = entropy.mean()
