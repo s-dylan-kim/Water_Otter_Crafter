@@ -74,7 +74,7 @@ class Crafting_State:
             return (-100, False)
 
         # check good actions
-        if ((self.condition != Condition.good or self.heart_and_soul_on) and action in constants.ACTION_TYPE.GOOD_ACTIONS):
+        if ((self.condition != Condition.good and not self.heart_and_soul_on) and action in constants.ACTION_TYPE.GOOD_ACTIONS):
             return (-100, False)
         
         # check half durability actions
@@ -150,6 +150,10 @@ class Crafting_State:
         else:
             self.touch_combo = 0
 
+        if (action not in constants.ACTION_TYPE.BUFF_ACTIONS):
+            # durability changes
+            done = self.__change_durability(action)
+
         # check manipulation
         if (self.manipulation > 0):
             self.durability += constants.MANIPULATION_DURABILITY
@@ -159,9 +163,8 @@ class Crafting_State:
         if (action in constants.ACTION_TYPE.BUFF_ACTIONS):
             # check buff actions
             reward += self.__apply_buffs(action)
-        else:
-            # durability changes
-            done = self.__change_durability(action)
+            
+            
 
         # check for overcap
         if (self.durability > constants.STARTING_DURABILITY):
@@ -329,11 +332,15 @@ class Crafting_State:
         if (self.waste_not_1 or self.waste_not_2):
             durability_change /= 2
         if (action == Action.masters_mend):
-            durability_change = -30
+            durability_change = 30
         
+        print(durability_change)
+
         durability_change = floor(durability_change)
 
         self.durability += durability_change
+
+        print(self.durability)
 
         return self.durability <= 0
 

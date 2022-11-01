@@ -17,10 +17,10 @@ while(not done):
 
     reward, done = test.crafting_sim(Action[input_action])
 
-    input_condition = input("Enter condition #:\n")
+    # input_condition = input("Enter condition #:\n")
 
-    test.set_condition(Condition[input_condition])
+    # test.set_condition(Condition[input_condition])
 
-    print("using: {}\n".format(input_condition))
+    # print("using: {}\n".format(input_condition))
 
     print("reward: {}\n".format(reward))
